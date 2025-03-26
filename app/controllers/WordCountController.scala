@@ -1,12 +1,12 @@
 package controllers
 
 import play.api.mvc._
-import services.{WordCountService, BlogFetcherService}
-import javax.inject._
-import scala.concurrent.ExecutionContext
 import play.api.libs.json._
+import services.{WordCountService, BlogFetcherService}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
+import javax.inject._
+import scala.concurrent.ExecutionContext
 
 /** Controller for handling word count from blog posts.
   *
@@ -26,8 +26,10 @@ class WordCountController @Inject() (
 )(implicit system: ActorSystem, ec: ExecutionContext, mat: Materializer)
     extends AbstractController(cc) {
 
-  // Access the hub actor through the WebSocketController
+  // === Shared actor hub from WebSocketController
   private val hub = webSocketController.getHub
+
+  // === Instantiate the WordCountService with the shared hub (sends to hub)
   private val wordCountService = new WordCountService(hub)
 
   def fetchAndProcessBlogs: Action[AnyContent] = Action.async {
