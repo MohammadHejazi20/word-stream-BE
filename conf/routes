@@ -9,3 +9,5 @@
 GET  /api/blogs  controllers.BlogController.fetchBlogs
 
 GET  /api/wordcount  controllers.WordCountController.fetchAndProcessBlogs
+
+GET  /ws  controllers.WebSocketController.websocket
