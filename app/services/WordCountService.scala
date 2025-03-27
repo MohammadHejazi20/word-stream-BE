@@ -4,11 +4,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import javax.inject.Inject
 import utils.{TextProcessingUtils, WordProcessingUtils}
 import play.api.libs.json._
-import org.apache.pekko.actor.ActorRef
-import actors.WebSocketHubActor
+import services.WebSocketService
 
-class WordCountService(
-    hub: ActorRef
+class WordCountService @Inject() (
+    webSocketService: WebSocketService
 )(implicit ec: ExecutionContext) {
 
   /** Processes JSON response, extracts text, and counts words */
@@ -18,7 +17,7 @@ class WordCountService(
       val result = WordProcessingUtils.countWords(cleanedTexts)
 
       // Send JSON result directly to all connected WebSocket clients
-      hub ! WebSocketHubActor.Broadcast(result)
+      webSocketService.broadcast(result)
 
       result
     }

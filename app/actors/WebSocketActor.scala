@@ -30,6 +30,7 @@ class WebSocketActor(
   import context.dispatcher
 
   private var interval: Option[Cancellable] = None
+  private var lastModified: String = ""
 
   // === Lifecycle Hook: On Connect
   override def preStart(): Unit = {
@@ -66,9 +67,31 @@ class WebSocketActor(
 
   // === Data fetch + emit to client
   private def sendLatestWordCounts(): Unit = {
-    blogFetcher
-      .fetchPosts()
-      .flatMap(wordCounter.countWordsFromJson)
-      .foreach(client ! _)
+    blogFetcher.fetchPosts().foreach { blogJsonSting =>
+      if (hasUpdates(blogJsonSting)) {
+        wordCounter.countWordsFromJson(blogJsonSting).foreach(client ! _)
+      } else {
+        println("[info]:  No new updates found")
+      }
+    }
+  }
+
+  // === Check for updates
+  private def hasUpdates(jsonString: String): Boolean = {
+    val json = Json.parse(jsonString)
+
+    val newestModified = (json \\ "modified")
+      .flatMap(_.asOpt[String])
+      .sorted
+      .lastOption
+      .getOrElse("")
+
+    val changed = newestModified != lastModified
+
+    if (changed) {
+      lastModified = newestModified
+    }
+
+    changed
   }
 }
