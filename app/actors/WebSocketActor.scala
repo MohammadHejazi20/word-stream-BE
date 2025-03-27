@@ -9,6 +9,8 @@ import play.api.libs.json._
 import actors.WebSocketHubActor._
 import scala.concurrent.duration._
 
+import utils.{BlogPostDiffer, JsonArrayParser}
+
 object WebSocketActor {
   def props(
       client: ActorRef,
@@ -30,7 +32,7 @@ class WebSocketActor(
   import context.dispatcher
 
   private var interval: Option[Cancellable] = None
-  private var lastModified: String = ""
+  private var cachedPosts: Map[Int, String] = Map.empty
 
   // === Lifecycle Hook: On Connect
   override def preStart(): Unit = {
@@ -65,33 +67,27 @@ class WebSocketActor(
     interval.foreach(_.cancel())
   }
 
-  // === Data fetch + emit to client
+  // === Fetch and Process Posts. This method fetches the latest blog posts, detects new or changed posts
   private def sendLatestWordCounts(): Unit = {
-    blogFetcher.fetchPosts().foreach { blogJsonSting =>
-      if (hasUpdates(blogJsonSting)) {
-        wordCounter.countWordsFromJson(blogJsonSting).foreach(client ! _)
-      } else {
-        println("[info]:  No new updates found")
+    blogFetcher.fetchPosts().foreach { blogJsonString =>
+      val parsedJson = JsonArrayParser.parse(blogJsonString)
+
+      val (newOrChangedPosts, updatedCache) =
+        BlogPostDiffer.detectNewOrChangedPosts(parsedJson, cachedPosts)
+
+      // Update the cached posts
+      cachedPosts = updatedCache
+
+      // Process new or changed posts
+      newOrChangedPosts match {
+        case Some(filteredJson) =>
+          wordCounter.countWordsFromJson(filteredJson).foreach { wordCounts =>
+            client ! wordCounts
+          }
+        case None =>
+          println("[info]: No new or changed posts detected.")
       }
     }
   }
 
-  // === Check for updates
-  private def hasUpdates(jsonString: String): Boolean = {
-    val json = Json.parse(jsonString)
-
-    val newestModified = (json \\ "modified")
-      .flatMap(_.asOpt[String])
-      .sorted
-      .lastOption
-      .getOrElse("")
-
-    val changed = newestModified != lastModified
-
-    if (changed) {
-      lastModified = newestModified
-    }
-
-    changed
-  }
 }
