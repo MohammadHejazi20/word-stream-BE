@@ -7,22 +7,18 @@ import scala.collection.immutable.Seq
 /** Utility object for processing text */
 object TextProcessingUtils {
 
-  def extractAndCleanText(jsonResponse: String): Seq[String] = {
-    val json = Json.parse(jsonResponse)
-
-    // Extract "rendered" field from "content" and explicitly convert to immutable Seq
-    val extractedTexts: Seq[String] = (json \\ "content")
-      .map { content =>
-        (content \ "rendered").asOpt[String].getOrElse("")
-      }
-      .to(Seq)
-
-    extractedTexts.map(removeHtmlTags)
-  }
-
-  /** Removes HTML tags from a string */
+  /** Removes HTML tags and unwanted characters from a string */
   def removeHtmlTags(text: String): String = {
-    val htmlTagPattern: Regex = "<[^>]+>".r // Regex to match HTML tags
-    htmlTagPattern.replaceAllIn(text, "").trim // Remove HTML tags
+    // Define a regex pattern to match HTML tags, entities, and special characters
+    val htmlAndSpecialCharsPattern =
+      """<[^>]*>|(&[^;\s]+;)|[!@#$%^&*„“;"()\[\]]|(\\r\\n)+|\\r+|\\n+|\\t+"""
+
+    text
+      // Remove HTML tags, entities, and special characters
+      .replaceAll(htmlAndSpecialCharsPattern, "")
+      // Replace multiple whitespace characters with a single space
+      .replaceAll("\\s+", " ")
+      // Trim leading and trailing whitespace
+      .trim
   }
 }

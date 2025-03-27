@@ -2,23 +2,16 @@ package services
 
 import scala.concurrent.{ExecutionContext, Future}
 import javax.inject.Inject
-import utils.{TextProcessingUtils, WordProcessingUtils}
 import play.api.libs.json._
-import services.WebSocketService
+import utils.{PerPostWordProcessor, JsonArrayParser}
 
-class WordCountService @Inject() (
-    webSocketService: WebSocketService
-)(implicit ec: ExecutionContext) {
+class WordCountService @Inject() ()(implicit ec: ExecutionContext) {
 
-  /** Processes JSON response, extracts text, and counts words */
-  def countWordsFromJson(jsonResponse: String): Future[JsValue] =
-    Future {
-      val cleanedTexts = TextProcessingUtils.extractAndCleanText(jsonResponse)
-      val result = WordProcessingUtils.countWords(cleanedTexts)
+  /** Processes a JSON blog post list and returns word count per post */
+  def countWordsFromJson(jsonResponse: String): Future[JsValue] = Future {
+    val posts = JsonArrayParser.parse(jsonResponse)
 
-      // Send JSON result directly to all connected WebSocket clients
-      webSocketService.broadcast(result)
-
-      result
-    }
+    // Count words per post and return as JSON
+    PerPostWordProcessor.process(posts)
+  }
 }
