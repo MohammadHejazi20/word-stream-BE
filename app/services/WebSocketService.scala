@@ -3,16 +3,20 @@ package services
 import javax.inject.{Inject, Named}
 import org.apache.pekko.actor.ActorRef
 import play.api.libs.json._
+import play.api.libs.ws.WSClient
+import play.api.Configuration
 import actors.WebSocketHubActor
-import utils.{BlogPostDiffer, JsonArrayParser}
+import utils.{BlogPostDiffer, JsonArrayParser, BlogFetcherUtils}
 import scala.concurrent.{ExecutionContext, Future}
 
 class WebSocketService @Inject() (
-    blogFetcher: BlogFetcherService,
+    ws: WSClient,
+    config: Configuration,
     wordCounter: WordCountService,
     @Named("webSocketHub") hub: ActorRef
 )(implicit ec: ExecutionContext) {
 
+  private val blogUrl = config.get[String]("the-key-academy-url")
   private var cachedPosts: Map[Int, String] = Map.empty
 
   def broadcast(json: JsValue): Unit = {
@@ -20,7 +24,7 @@ class WebSocketService @Inject() (
   }
 
   def sendLatestWordCounts(): Unit = {
-    blogFetcher.fetchPosts().foreach { blogJsonString =>
+    BlogFetcherUtils.fetchPosts(ws, blogUrl).foreach { blogJsonString =>
       val parsedJson = JsonArrayParser.parse(blogJsonString)
 
       val (newOrChangedPosts, updatedCache) =
