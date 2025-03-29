@@ -2,31 +2,27 @@ package services
 
 import play.api.libs.ws.WSClient
 import play.api.Configuration
+import utils.BlogFetcherUtils
 import scala.concurrent.{ExecutionContext, Future}
 import javax.inject.Inject
 
-/** Fetches blog posts from the specified URL.
-  * @return
-  *   A Future containing the response body as a String.
-  * @important
-  *   The response body is expected to be in JSON format.
+/** BlogFetcherService
+  *
+  * Wrapper around BlogFetcherUtils that fetches blog posts using a URL
+  * configured in application.conf.
   */
+class BlogFetcherService @Inject() (
+    ws: WSClient,
+    config: Configuration
+)(implicit ec: ExecutionContext) {
 
-class BlogFetcherService @Inject() (ws: WSClient, appConfig: Configuration)(
-    implicit ec: ExecutionContext
-) {
+  private val blogUrl: String = config.get[String]("the-key-academy-url")
 
-  private val blogUrl = appConfig.get[String]("the-key-academy-url")
-
+  /** Fetches blog posts using WSClient and a configured URL.
+    * @return
+    *   Future[String] containing raw JSON string
+    */
   def fetchPosts(): Future[String] = {
-    ws.url(blogUrl).get().map { response =>
-      if (response.status == 200) {
-        response.body
-      } else {
-        throw new Exception(
-          s"Failed to fetch blog posts: ${response.statusText}"
-        )
-      }
-    }
+    BlogFetcherUtils.fetchPosts(ws, blogUrl)
   }
 }

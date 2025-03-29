@@ -2,16 +2,21 @@ package controllers
 
 import play.api.mvc._
 import play.api.libs.json._
-import services.{WordCountService, BlogFetcherService}
+import play.api.libs.ws.WSClient
+import play.api.Configuration
+import services.WordCountService
 import javax.inject._
 import scala.concurrent.ExecutionContext
+import utils.BlogFetcherUtils
 
 /** Controller for handling word count from blog posts.
   *
   * @param cc
   *   The controller components.
-  * @param blogFetcher
-  *   The service to fetch blog posts.
+  * @param ws
+  *   The WSClient for making HTTP requests.
+  * @param config
+  *   The application configuration.
   * @param wordCountService
   *   The service to count words.
   */
@@ -19,13 +24,16 @@ import scala.concurrent.ExecutionContext
 @Singleton
 class WordCountController @Inject() (
     cc: ControllerComponents,
-    blogFetcher: BlogFetcherService,
+    ws: WSClient,
+    config: Configuration,
     wordCountService: WordCountService
 )(implicit ec: ExecutionContext)
     extends AbstractController(cc) {
 
+  private val blogUrl = config.get[String]("the-key-academy-url")
+
   def fetchAndProcessBlogs: Action[AnyContent] = Action.async {
-    blogFetcher.fetchPosts().flatMap { jsonResponse =>
+    BlogFetcherUtils.fetchPosts(ws, blogUrl).flatMap { jsonResponse =>
       wordCountService.countWordsFromJson(jsonResponse).map { result =>
         Ok(result)
       }

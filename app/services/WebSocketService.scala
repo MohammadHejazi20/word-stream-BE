@@ -3,24 +3,33 @@ package services
 import javax.inject.{Inject, Named}
 import org.apache.pekko.actor.ActorRef
 import play.api.libs.json._
+import play.api.libs.ws.WSClient
+import play.api.Configuration
 import actors.WebSocketHubActor
-import utils.{BlogPostDiffer, JsonArrayParser}
+import utils.{
+  BlogPostDiffer,
+  JsonArrayParser,
+  BlogFetcherUtils,
+  PerPostWordProcessor
+}
 import scala.concurrent.{ExecutionContext, Future}
 
 class WebSocketService @Inject() (
-    blogFetcher: BlogFetcherService,
-    wordCounter: WordCountService,
+    ws: WSClient,
+    config: Configuration,
     @Named("webSocketHub") hub: ActorRef
 )(implicit ec: ExecutionContext) {
 
+  private val blogUrl = config.get[String]("the-key-academy-url")
   private var cachedPosts: Map[Int, String] = Map.empty
+  private var lastBroadcastedJson: Option[JsValue] = None
 
   def broadcast(json: JsValue): Unit = {
     hub ! WebSocketHubActor.Broadcast(json)
   }
 
   def sendLatestWordCounts(): Unit = {
-    blogFetcher.fetchPosts().foreach { blogJsonString =>
+    BlogFetcherUtils.fetchPosts(ws, blogUrl).foreach { blogJsonString =>
       val parsedJson = JsonArrayParser.parse(blogJsonString)
 
       val (newOrChangedPosts, updatedCache) =
@@ -31,13 +40,16 @@ class WebSocketService @Inject() (
 
       // Process new or changed posts
       newOrChangedPosts match {
-        case Some(filteredJson) =>
-          wordCounter.countWordsFromJson(filteredJson).foreach { wordCounts =>
-            hub ! WebSocketHubActor.Broadcast(wordCounts)
-          }
+        case Some(newOrUpdatedPostsJson) =>
+          val parsedPostsJson = JsonArrayParser.parse(newOrUpdatedPostsJson)
+          val wordCountsJson = PerPostWordProcessor.process(parsedPostsJson)
+          lastBroadcastedJson = Some(wordCountsJson)
+          broadcast(wordCountsJson)
         case None =>
           println("[info]: No new or changed posts detected.")
       }
     }
   }
+
+  def getLastBroadcasted(): Option[JsValue] = lastBroadcastedJson
 }

@@ -27,7 +27,7 @@ class WebSocketController @Inject() (
   def websocket: WebSocket = WebSocket.accept[JsValue, JsValue] { _ =>
     ActorFlow.actorRef { clientRef =>
       // Every connection gets its own socket actor
-      WebSocketActor.props(clientRef, hub)
+      WebSocketActor.props(clientRef, hub, webSocketService)
     }
   }
 }
