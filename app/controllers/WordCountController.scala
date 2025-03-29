@@ -15,8 +15,8 @@ import utils.BlogFetcherUtils
   *   The controller components.
   * @param ws
   *   The WSClient for making HTTP requests.
-  * @param blogFetcher
-  *   The Utils for fetching blog posts.
+  * @param config
+  *   The application configuration.
   * @param wordCountService
   *   The service to count words.
   */
